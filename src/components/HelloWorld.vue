@@ -4,7 +4,18 @@
     <p>2020</p>
     <el-form :model="form" ref="form">
         <el-table :data="form.datas" highlight-current-row style="width: 100%">
-            <el-table-column prop="date" label="日期" width="60"></el-table-column>
+            <el-table-column prop="date" label="日期">
+                <template slot-scope="scope">
+                    <template v-if="scope.row.action == 'view'">
+                        {{scope.row.date}}
+                    </template>
+                    <template v-if="scope.row.action == 'edit'">
+                        <el-form-item :prop="'datas.'+scope.$index + '.date'">
+                            <el-input size="mini" v-model.trim="scope.row.date" style="width: 120px;"></el-input>
+                        </el-form-item>
+                    </template>
+                </template>
+            </el-table-column>
 
             <el-table-column prop="realSalary" label="工资到手">
                 <template slot-scope="scope">
@@ -115,29 +126,32 @@ export default {
             form: {
                 datas: [],
             },
-
             //表单验证规则
             rules: {
-                name: [{
+                realSalary: [{
                     type: 'string',
                     required: true,
                     trigger: 'blur',
-                    message: '请输入姓名',
+                    message: '请输入工资到手数字',
                 }],
-                age: [{
-                        type: 'number',
-                        required: true,
-                        trigger: 'blur',
-                        message: '请输入年龄',
-                    },
-                    {
-                        type: 'number',
-                        trigger: 'blur',
-                        min: 0,
-                        max: 120,
-                        message: '年龄最小0，最大120',
-                    }
-                ],
+                rent: [{
+                    type: 'string',
+                    required: true,
+                    trigger: 'blur',
+                    message: '请输入房租数字',
+                }],
+                utilities: [{
+                    type: 'string',
+                    required: true,
+                    trigger: 'blur',
+                    message: '请输入水电费数字',
+                }],
+                shop: [{
+                    type: 'string',
+                    required: true,
+                    trigger: 'blur',
+                    message: '请输入购物数字',
+                }],
             }
         }
     },
@@ -186,25 +200,10 @@ export default {
                 }
             })
         },
+
+        //组件刚加载时从localStorage里获取数据
         getData() {
-            if (localStorage.hasOwnProperty("testAAA") == null) {
-                let obj = [{
-                    "realSalary": "",
-                    "rent": "",
-                    "utilities": "",
-                    "shop": "",
-                    "remark": "",
-                    "deposit": "",
-                    "action": "add"
-
-                }]
-                console.log("dfsd")
-                localStorage.setItem(JSON.stringify("testAAA"), JSON.stringify(obj))
-
-            }
-
-            let temp = JSON.parse(localStorage.getItem(JSON.stringify("testAAA")))
-
+            let temp = JSON.parse(localStorage.getItem(JSON.stringify("salaryManagement")))
             if (!temp) {
                 let obj = [{
                     "realSalary": "",
@@ -218,45 +217,35 @@ export default {
                 }]
                 this.form.datas = obj
             } else {
-                // temp.unshift({
-                //     "realSalary": "",
-                //     "rent": "",
-                //     "utilities": "",
-                //     "shop": "",
-                //     "remark": "",
-                //     "deposit": "",
-                //     "action": "add"
-                // });
                 this.form.datas = temp
             }
-
         },
 
         //新增操作
         click_add(item, index) {
+            //问题：为什么这里打印item出来总是空
+            // console.log("item", item)
             // if (!this.validateField('form', index)) return;
             //模拟新增一条数据
-            let itemClone = JSON.parse(JSON.stringify(item));
-            console.log()
+
             let month = new Date().getMonth() + 1
             let date = new Date().getDate()
             if (date < 10) {
                 date = "0" + date
             }
             let time = month + '-' + date
-            console.log("time", time + '-' + date)
-            itemClone.date = time;
-            itemClone.action = "view";
-            this.form.datas.push(itemClone);
-            console.log("itemClone", itemClone)
+
+            let newObj = JSON.parse(JSON.stringify(item));
+            newObj.deposit = Number(newObj.realSalary) - Number(newObj.rent) - Number(newObj.utilities) - Number(newObj.shop)
+            newObj.date = time;
+            newObj.action = "view";
+            this.form.datas.push(newObj);
+
             this.resetField('form', index);
 
-            let temp = JSON.parse(localStorage.getItem(JSON.stringify("testAAA")))
-            temp.push(itemClone)
-
-            localStorage.setItem(JSON.stringify("testAAA"), JSON.stringify(temp))
-
-            console.log("temp", temp)
+            let temp = JSON.parse(localStorage.getItem(JSON.stringify("salaryManagement")))
+            temp.push(newObj)
+            localStorage.setItem(JSON.stringify("salaryManagement"), JSON.stringify(temp))
 
         },
 
@@ -267,9 +256,14 @@ export default {
 
         //编辑-保存操作
         click_save(item, index) {
-            if (!this.validateField('form', index)) return;
-
+            console.log("item", item)
+            // if (!this.validateField('form', index)) return;
             item.action = "view";
+            console.log("item", item)
+
+            this.form.datas.splice(index, 1, item);
+            localStorage.setItem(JSON.stringify("salaryManagement"), JSON.stringify(this.form.datas))
+
         },
 
         //编辑-取消操作
@@ -281,12 +275,11 @@ export default {
         //编辑操作
         click_edit(item, index) {
             item.action = "edit";
-
         },
 
         //删除操作
         click_delete(item, index) {
-            this.$confirm("确定删除该条数据(ID" + item.id + ")吗?", "提示", {
+            this.$confirm("确定删除该条日期为" + item.date + "的数据吗?", "提示", {
                     confirmButtonText: "确定",
                     cancelButtonText: "取消",
                     type: "warning"
@@ -294,6 +287,7 @@ export default {
                 .then(() => {
                     //模拟删除一条数据
                     this.form.datas.splice(index, 1);
+                    localStorage.setItem(JSON.stringify("salaryManagement"), JSON.stringify(this.form.datas))
                 })
                 .catch(() => {});
         },
