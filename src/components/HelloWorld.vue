@@ -46,7 +46,7 @@
             <el-table-column prop="utilities" label="水电费">
                 <template slot-scope="scope">
                     <template v-if="scope.row.action == 'view'">
-                        {{scope.row.utilities}}
+                        {{scope.row.utilities}} / 2
                     </template>
                     <template v-else>
                         <el-form-item :prop="'datas.'+scope.$index + '.utilities'">
@@ -113,6 +113,9 @@
             </el-table-column>
         </el-table>
     </el-form>
+    <div @click="calcTotal">存款数字总和为：{{form.total}}（最后计算时间为 {{form.caclDate}}）</div>
+    <div>Notes:<el-input v-model='form.notes' @change="inputChange"></el-input>
+    </div>
 </div>
 </template>
 
@@ -125,6 +128,9 @@ export default {
         return {
             form: {
                 datas: [],
+                notes: "",
+                total: 0,
+                caclDate: ""
             },
             //表单验证规则
             rules: {
@@ -203,6 +209,67 @@ export default {
 
         //组件刚加载时从localStorage里获取数据
         getData() {
+            // let tempp = {
+            //     "formDatas": [{
+            //         "realSalary": "",
+            //         "rent": "",
+            //         "utilities": "",
+            //         "shop": "",
+            //         "remark": "",
+            //         "deposit": "",
+            //         "action": "add"
+            //     }, {
+            //         "realSalary": "7637.91",
+            //         "rent": 1480,
+            //         "utilities": "265.24",
+            //         "shop": "3525.29",
+            //         "remark": "租房子押金、和买了些家具",
+            //         "deposit": "2500",
+            //         "action": "view",
+            //         "date": "2020-05-15"
+            //     }, {
+            //         "realSalary": "9239.42",
+            //         "rent": 1480,
+            //         "utilities": "424.31",
+            //         "shop": "2547.27",
+            //         "remark": "花呗欠太多了",
+            //         "deposit": "5000",
+            //         "action": "view",
+            //         "date": "2020-06-15"
+            //     }, {
+            //         "realSalary": "9314.05",
+            //         "rent": 1480,
+            //         "utilities": "639.89",
+            //         "shop": "2514.10",
+            //         "remark": "花呗欠太多了",
+            //         "deposit": "5000",
+            //         "action": "view",
+            //         "date": "2020-07-15"
+            //     }, {
+            //         "realSalary": "11155.58",
+            //         "rent": 1480,
+            //         "utilities": "960.54",
+            //         "shop": "6695.31",
+            //         "remark": "买了电脑4299",
+            //         "deposit": "2500",
+            //         "action": "view",
+            //         "date": "2020-08-15"
+            //     }, {
+            //         "realSalary": "11561.86",
+            //         "rent": 1480,
+            //         "utilities": "646.72",
+            //         "shop": "2758.50",
+            //         "remark": "",
+            //         "deposit": "7000",
+            //         "action": "view",
+            //         "date": "2020-09-15"
+            //     }],
+            //     "notes": "",
+            //     "total": 0,
+            //     "caclDate": "",
+            // }
+            // localStorage.setItem(JSON.stringify("salaryManagement"), JSON.stringify(tempp))
+
             let temp = JSON.parse(localStorage.getItem(JSON.stringify("salaryManagement")))
             if (!temp) {
                 let obj = [{
@@ -217,8 +284,31 @@ export default {
                 }]
                 this.form.datas = obj
             } else {
-                this.form.datas = temp
+                this.form.datas = temp.formDatas
             }
+            this.form.notes = temp.notes
+            this.form.total = temp.total
+            this.form.caclDate = temp.caclDate
+        },
+
+        inputChange() {
+            let temp = JSON.parse(localStorage.getItem(JSON.stringify("salaryManagement")))
+            temp.notes = this.form.notes
+            localStorage.setItem(JSON.stringify("salaryManagement"), JSON.stringify(temp))
+        },
+
+        calcTotal() {
+            let date = new Date().getFullYear() + '-' + new Date().getMonth() + '-' + new Date().getDate() + ' ' + new Date().getHours() + ':' + new Date().getMinutes()
+            this.form.caclDate = date
+            let count = 0
+            this.form.datas.forEach(item => {
+                count += Number(item.deposit)
+            })
+            this.form.total = count
+            let temp = JSON.parse(localStorage.getItem(JSON.stringify("salaryManagement")))
+            temp.total = this.form.total
+            temp.caclDate = this.form.caclDate
+            localStorage.setItem(JSON.stringify("salaryManagement"), JSON.stringify(temp))
         },
 
         //新增操作
@@ -227,16 +317,19 @@ export default {
             // console.log("item", item)
             // if (!this.validateField('form', index)) return;
             //模拟新增一条数据
-
+            let year = new Date().getFullYear()
             let month = new Date().getMonth() + 1
             let date = new Date().getDate()
+            if (month < 10) {
+                month = "0" + month
+            }
             if (date < 10) {
                 date = "0" + date
             }
-            let time = month + '-' + date
+            let time = year + '-' + month + '-' + date
 
             let newObj = JSON.parse(JSON.stringify(item));
-            newObj.deposit = Number(newObj.realSalary) - Number(newObj.rent) - Number(newObj.utilities) - Number(newObj.shop)
+            newObj.shop = (Number(newObj.realSalary) - Number(newObj.rent) - Number(newObj.utilities * 0.5) - Number(newObj.deposit)).toFixed(2)
             newObj.date = time;
             newObj.action = "view";
             this.form.datas.push(newObj);
@@ -244,7 +337,7 @@ export default {
             this.resetField('form', index);
 
             let temp = JSON.parse(localStorage.getItem(JSON.stringify("salaryManagement")))
-            temp.push(newObj)
+            temp.formDatas = this.form.datas
             localStorage.setItem(JSON.stringify("salaryManagement"), JSON.stringify(temp))
 
         },
@@ -259,10 +352,12 @@ export default {
             console.log("item", item)
             // if (!this.validateField('form', index)) return;
             item.action = "view";
-            console.log("item", item)
-
+            item.shop = (Number(item.realSalary) - Number(item.rent) - Number(item.utilities * 0.5) - Number(item.deposit)).toFixed(2)
             this.form.datas.splice(index, 1, item);
-            localStorage.setItem(JSON.stringify("salaryManagement"), JSON.stringify(this.form.datas))
+
+            let temp = JSON.parse(localStorage.getItem(JSON.stringify("salaryManagement")))
+            temp.formDatas = this.form.datas
+            localStorage.setItem(JSON.stringify("salaryManagement"), JSON.stringify(temp))
 
         },
 
@@ -287,7 +382,9 @@ export default {
                 .then(() => {
                     //模拟删除一条数据
                     this.form.datas.splice(index, 1);
-                    localStorage.setItem(JSON.stringify("salaryManagement"), JSON.stringify(this.form.datas))
+                    let temp = JSON.parse(localStorage.getItem(JSON.stringify("salaryManagement")))
+                    temp.formDatas = this.form.datas
+                    localStorage.setItem(JSON.stringify("salaryManagement"), JSON.stringify(temp))
                 })
                 .catch(() => {});
         },
